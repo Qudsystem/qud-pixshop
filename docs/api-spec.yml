@@ -1,0 +1,271 @@
+openapi: 3.0.3
+info:
+  title: AI Studio Automation API
+  description: RESTful API for automating Google AI Studio interactions
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aistudio-automation.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+  - url: https://api.aistudio-automation.com/v1
+    description: Production server
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /process:
+    post:
+      summary: Process image generation request
+      description: Submit an image generation request to be processed by Google AI Studio
+      tags:
+        - Processing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prompt
+              properties:
+                prompt:
+                  type: string
+                  description: Text prompt for image generation
+                  example: "A beautiful sunset over mountains"
+                image:
+                  type: string
+                  format: base64
+                  description: Optional base64 encoded image to process
+                  example: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                sessionId:
+                  type: string
+                  description: Optional session ID to reuse existing browser session
+                  example: "session_1234567890_abc123"
+            example:
+              prompt: "A futuristic city skyline"
+              image: null
+              sessionId: null
+      responses:
+        '202':
+          description: Request accepted and queued for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessingResponse'
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many requests - Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /status/{jobId}:
+    get:
+      summary: Get job status
+      description: Check the status of a processing job
+      tags:
+        - Status
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          description: Job ID returned from process endpoint
+          schema:
+            type: string
+          example: "job_1234567890_abc123"
+      responses:
+        '200':
+          description: Job status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusResponse'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /stats:
+    get:
+      summary: Get system statistics
+      description: Retrieve system statistics and health information
+      tags:
+        - System
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+        '401':
+          description: Unauthorized - Invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+  schemas:
+    ProcessingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Request added to processing queue"
+        data:
+          type: object
+          properties:
+            jobId:
+              type: string
+              example: "job_1234567890_abc123"
+            status:
+              type: string
+              example: "queued"
+            estimatedTime:
+              type: string
+              example: "30-60 seconds"
+
+    JobStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            found:
+              type: boolean
+              example: true
+            id:
+              type: string
+              example: "job_1234567890_abc123"
+            status:
+              type: string
+              enum: [queued, active, completed, failed]
+              example: "completed"
+            data:
+              type: object
+              description: Original request data
+            result:
+              type: object
+              description: Processing result
+              properties:
+                success:
+                  type: boolean
+                result:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum: [image, text]
+                    url:
+                      type: string
+                      description: URL of generated image
+                    content:
+                      type: string
+                      description: Generated text content
+            failedReason:
+              type: string
+              description: Error message if job failed
+            progress:
+              type: number
+              description: Job progress percentage
+              example: 100
+
+    StatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            uptime:
+              type: number
+              description: Server uptime in seconds
+              example: 3600
+            memory:
+              type: object
+              properties:
+                rss:
+                  type: number
+                  description: Resident Set Size
+                heapTotal:
+                  type: number
+                  description: Total heap size
+                heapUsed:
+                  type: number
+                  description: Used heap size
+                external:
+                  type: number
+                  description: External memory usage
+            timestamp:
+              type: string
+              format: date-time
+              example: "2024-01-15T10:30:00.000Z"
+            version:
+              type: string
+              example: "1.0.0"
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "API key is required"
+        message:
+          type: string
+          description: Detailed error message
+        retryAfter:
+          type: number
+          description: Seconds to wait before retry (for rate limiting)
+          example: 900

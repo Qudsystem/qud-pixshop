@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ar">
+<!-- Formatted and sanitized: no default API key, XSS-safe helpers, timeouts (generated on 2026-01-06) -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مولد الصور - اختبار</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+        .api-key-input {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+        }
+        /* Small loading spinner */
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: inline-block;
+            vertical-align: middle;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 مولد الصور بالذكاء الاصطناعي</h1>
+        
+        <div class="form-group">
+            <label for="apiKey">مفتاح API:</label>
+            <input type="password" id="apiKey" class="api-key-input" placeholder="أدخل مفتاح API الخاص بك" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+            <label for="action">نوع العملية:</label>
+            <select id="action">
+                <option value="generate">إنشاء صورة جديدة</option>
+                <option value="edit">تعديل صورة موجودة</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="prompt">وصف الصورة:</label>
+            <textarea id="prompt" placeholder="صف الصورة التي تريد إنشاءها... مثلاً: قط أبيض يلعب في الحديقة"></textarea>
+        </div>
+
+        <div class="form-group" id="imageUrlGroup" style="display: none;">
+            <label for="imageUrl">رابط الصورة الأصلية (للتعديل):</label>
+            <input type="url" id="imageUrl" placeholder="أدخل رابط الصورة التي تريد تعديلها">
+        </div>
+
+        <div class="form-group">
+            <label for="style">نمط الصورة:</label>
+            <select id="style">
+                <option value="realistic">واقعي</option>
+                <option value="anime">أنمي</option>
+                <option value="cartoon">كرتون</option>
+                <option value="artistic">فني</option>
+                <option value="photographic">تصويري</option>
+            </select>
+        </div>
+
+        <button id="submitBtn">🚀 إنشاء الصورة</button>
+
+        <div id="result" class="result" aria-live="polite"></div>
+    </div>
+
+    <script>
+        // تبديل إظهار حقل رابط الصورة
+        document.getElementById('action').addEventListener('change', function() {
+            const imageUrlGroup = document.getElementById('imageUrlGroup');
+            imageUrlGroup.style.display = this.value === 'edit' ? 'block' : 'none';
+        });
+
+        // Helpers: XSS escape, loading indicator, safe result rendering
+        function escapeHtml(unsafe) {
+            return String(unsafe || '').replace(/[&<>\"'`=\/]/g, function (s) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;",'/':'&#x2F;','=':'&#x3D;','`':'&#x60'}[s];
+            });
+        }
+
+        function setLoading(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = 'result loading';
+            resultDiv.innerHTML = `<span>${escapeHtml(message)} <span class="spinner" aria-hidden="true"></span></span>`;
+            resultDiv.style.display = 'block';
+        }
+
+        function showResult(message, type, isHtml = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            if (isHtml) {
+                resultDiv.innerHTML = message;
+            } else {
+                resultDiv.textContent = message;
+            }
+            resultDiv.style.display = 'block';
+        }
+
+        // Submit button listener
+        document.getElementById('submitBtn').addEventListener('click', generateImage);
+
+        async function generateImage() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const action = document.getElementById('action').value;
+            const prompt = document.getElementById('prompt').value.trim();
+            const style = document.getElementById('style').value;
+            const imageUrl = document.getElementById('imageUrl').value.trim();
+
+            // Validation
+            if (!apiKey) {
+                showResult('يرجى إدخال مفتاح API', 'error');
+                return;
+            }
+            if (!prompt) {
+                showResult('يرجى إدخال وصف للصورة', 'error');
+                return;
+            }
+            if (prompt.length > 1000) {
+                showResult('الوصف طويل جداً (أقصى 1000 حرف)', 'error');
+                return;
+            }
+            if (action === 'edit' && !imageUrl) {
+                showResult('يرجى إدخال رابط الصورة الأصلية للتعديل', 'error');
+                return;
+            }
+
+            setLoading('⏳ جاري معالجة الطلب...');
+
+            const requestData = { prompt, style, action };
+            if (action === 'edit') requestData.imageUrl = imageUrl;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': apiKey
+                    },
+                    body: JSON.stringify(requestData),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                let data;
+                try { data = await response.json(); } catch (e) { data = { message: await response.text() }; }
+
+                if (response.ok) {
+                    const payload = data && data.data ? data.data : data;
+                    const requestIdEsc = escapeHtml(payload.requestId || '');
+                    const statusEsc = escapeHtml(payload.status || '');
+                    const messageEsc = escapeHtml(payload.message || '');
+
+                    showResult(`<h3>✅ تم إرسال الطلب بنجاح!</h3>
+                        <p><strong>معرف الطلب:</strong> ${requestIdEsc}</p>
+                        <p><strong>الحالة:</strong> ${statusEsc}</p>
+                        <p><strong>الرسالة:</strong> ${messageEsc}</p>
+                        <p>يمكنك متابعة حالة الطلب باستخدام المعرف: <code>${requestIdEsc}</code></p>
+                        <button id="checkStatusBtn">🔍 التحقق من الحالة</button>
+                    `, 'success', true);
+
+                    // Attach listener without embedding API key in DOM
+                    document.getElementById('checkStatusBtn').addEventListener('click', () => checkStatus(requestIdEsc));
+                } else {
+                    const msg = escapeHtml(data.message || 'حدث خطأ غير معروف');
+                    const err = escapeHtml(data.error || '');
+                    showResult(`<h3>❌ خطأ في الطلب</h3><p><strong>الرسالة:</strong> ${msg}</p><p><strong>الرمز:</strong> ${err}</p>`, 'error', true);
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    showResult('انتهت مهلة الاتصال. حاول مرة أخرى لاحقاً.', 'error');
+                } else {
+                    showResult('تعذر الاتصال بالخادم. تحقق من تشغيل الخادم وعنوانه.', 'error');
+                }
+            }
+        }
+
+        async function checkStatus(requestId) {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                showResult('يرجى إدخال مفتاح API', 'error');
+                return;
+            }
+
+            setLoading('⏳ جاري التحقق من حالة الطلب...');
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+            try {
+                const response = await fetch(`http://localhost:3000/api/v1/status/${encodeURIComponent(requestId)}`, {
+                    headers: { 'X-API-Key': apiKey },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                let data;
+                try { data = await response.json(); } catch (e) { data = { message: await response.text() }; }
+
+                if (response.ok) {
+                    const payload = data && data.data ? data.data : data;
+                    const requestIdEsc = escapeHtml(payload.requestId || requestId);
+                    const statusEsc = escapeHtml(payload.status || '');
+
+                    let statusHtml = `<h3>📊 حالة الطلب</h3><p><strong>معرف الطلب:</strong> ${requestIdEsc}</p><p><strong>الحالة:</strong> ${statusEsc}</p>`;
+
+                    if (payload.result) {
+                        const resultEsc = escapeHtml(payload.result);
+                        statusHtml += `<p><strong>النتيجة:</strong></p><img src="${resultEsc}" alt="الصورة الناتجة" style="max-width: 100%; border-radius: 5px;"><p><a href="${resultEsc}" target="_blank" rel="noopener">فتح الصورة في نافذة جديدة</a></p>`;
+                    } else if (payload.error) {
+                        statusHtml += `<p><strong>خطأ:</strong> ${escapeHtml(payload.error)}</p>`;
+                    }
+
+                    if (payload.progress !== undefined) {
+                        statusHtml += `<p><strong>التقدم:</strong> ${escapeHtml(String(payload.progress))}%</p>`;
+                    }
+
+                    statusHtml += `<p><small>تم التحديث في: ${new Date().toLocaleTimeString()}</small></p>`;
+
+                    showResult(statusHtml, 'success', true);
+                } else {
+                    showResult(`<h3>❌ خطأ في التحقق</h3><p><strong>الرسالة:</strong> ${escapeHtml(data.message || 'حدث خطأ غير معروف')}</p>`, 'error', true);
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    showResult('انتهت مهلة التحقق.', 'error');
+                } else {
+                    showResult('تعذر الاتصال بالخادم عند التحقق.', 'error');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>تجربة Puter AI صورة</title>
+</head>
+<body>
+  <!-- واجهة ضمن الكرت الرئيسي -->
+
+  <!-- سكربت Puter -->
+  <script src="https://js.puter.com/v2/"></script>
+
+  <!-- كود تجربة مُحسَّن: واجهة، أنيميشن، لودر، كروت للصور -->
+  <style>
+    :root{
+      --card-bg: rgba(255,255,255,0.06);
+      --glass: rgba(255,255,255,0.06);
+      --accent1: #7c3aed; /* purple */
+      --accent2: #06b6d4; /* cyan */
+    }
+    html,body{height:100%;margin:0;font-family: system-ui,Segoe UI,Roboto,'Noto Naskh Arabic',sans-serif;color:#eee;background:#0b1020;direction:rtl}
+    body{display:flex;align-items:center;justify-content:center;padding:40px;background:linear-gradient(120deg,#071021 0%, #081526 50%, #04121b 100%);background-size:200% 200%;animation:bgShift 18s ease-in-out infinite}
+    @keyframes bgShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+    .app{width:100%;max-width:920px;background:linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:24px;box-shadow:0 8px 40px rgba(2,6,23,0.7);backdrop-filter: blur(6px)}
+    header{display:flex;align-items:center;gap:16px}
+    header h1{margin:0;font-size:1.35rem;letter-spacing:0.6px;text-shadow:0 2px 12px rgba(124,58,237,0.16)}
+    header p{margin:0;opacity:0.8;font-size:0.9rem}
+
+    #controls{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+    .input-row{display:flex;gap:10px;align-items:center}
+    textarea{flex:1;min-height:72px;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(0,0,0,0.22);color:inherit;resize:vertical;outline:none;transition:box-shadow .18s, transform .08s}
+    textarea:focus{box-shadow:0 6px 24px rgba(6,182,212,0.08);transform:translateY(-1px)}
+
+    select{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:inherit}
+
+    #actions{display:flex;align-items:center;gap:10px}
+    #generate{background:linear-gradient(90deg,var(--accent1),var(--accent2));border:none;color:white;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(7,10,27,0.5);transition:transform .12s ease, box-shadow .12s;position:relative;overflow:hidden}
+    #generate:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(7,10,27,0.6)}
+    #generate:active{transform:translateY(-1px)}
+
+    /* subtle shine */
+    #generate::after{content:'';position:absolute;left:-40%;top:0;width:40%;height:100%;background:linear-gradient(120deg, rgba(255,255,255,0.15), rgba(255,255,255,0.02));transform:skewX(-20deg);opacity:0;transition:opacity .8s}
+    #generate:hover::after{opacity:1;left:120%}
+
+    .status{font-weight:700;color:#c7f9ff;min-height:22px}
+    .status .spinner{display:inline-block;width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,0.12);border-top-color:rgba(255,255,255,0.8);animation:spin .9s linear infinite;vertical-align:middle;margin-left:8px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    #images{margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:10px;border-radius:12px;overflow:hidden;position:relative;border:1px solid rgba(255,255,255,0.03);box-shadow:0 6px 24px rgba(2,6,23,0.6);transition:transform .18s ease, box-shadow .18s}
+    .card:hover{transform:translateY(-6px);box-shadow:0 18px 48px rgba(7,10,27,0.6)}
+    .card img{width:100%;height:auto;border-radius:8px;display:block;opacity:0;transform:scale(.98);animation:pop .45s ease-out forwards}
+    @keyframes pop{to{opacity:1;transform:scale(1)}}
+
+    .actions-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .btn-small{background:rgba(0,0,0,0.28);border:1px solid rgba(255,255,255,0.04);color:#fff;padding:6px 8px;border-radius:8px;font-size:0.9rem;cursor:pointer}
+
+    .meta{font-size:0.85rem;opacity:0.8;margin-top:6px}
+
+    /* upload area */
+    .upload-area{margin-top:10px;border:2px dashed rgba(255,255,255,0.04);padding:12px;border-radius:10px;text-align:center;color:rgba(255,255,255,0.7);background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent)}
+    .upload-area.drag{border-color:rgba(124,58,237,0.8);box-shadow:0 8px 24px rgba(124,58,237,0.06)}
+
+    /* editor modal */
+    .editor-modal{position:fixed;inset:0;background:rgba(3,6,18,0.75);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10000;visibility:hidden;opacity:0;transition:opacity .18s}
+    .editor-modal.open{visibility:visible;opacity:1}
+    .editor-sheet{width:100%;max-width:980px;background:#071226;border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 12px 48px rgba(3,6,18,0.8)}
+    .editor-canvas{width:100%;height:420px;background:#000;border-radius:8px;display:block;margin-bottom:10px;touch-action:none}
+    .editor-toolbar{display:flex;gap:8px;align-items:center}
+    .chip{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);color:#fff}
+
+    /* camera modal + controls */
+    .cam-btn{background:linear-gradient(90deg,var(--accent2),var(--accent1));color:white;border:none;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700}
+    .camera-video{width:100%;height:360px;background:#000;border-radius:8px;object-fit:cover}
+    .camera-controls{display:flex;gap:10px;align-items:center;margin-top:10px}
+    .camera-flash{position:absolute;inset:0;background:white;opacity:0;pointer-events:none;border-radius:8px;transition:opacity .18s}
+    .camera-flash.flash{opacity:0.95;transition:opacity .18s ease-out}
+
+    /* confetti canvas overlay */
+    #confetti{position:fixed;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:9999}
+
+    /* responsive tweaks */
+    @media (max-width:520px){body{padding:20px}.app{padding:16px}.editor-canvas{height:320px}.camera-video{height:220px}}  
+  </style>
+
+  <div class="app">
+    <header>
+      <div>
+        <h1>تجربة توليد صورة بـ Puter</h1>
+        <p>اكتب وصفًا وجرّب توليد صور خيالية ✨</p>
+      </div>
+    </header>
+
+    <div id="controls">
+      <label for="prompt"><strong>أدخل وصف الصورة</strong></label>
+      <div class="input-row">
+        <textarea id="prompt" placeholder="مثال: قطة لطيفة ترتدي نظارة شمسية في مدينة مستقبلية"></textarea>
+      </div>
+
+      <div class="input-row" style="align-items:center">
+        <select id="model">
+          <option value="gemini-2.5-flash-image-preview">gemini-2.5-flash-image-preview</option>
+        </select>
+
+        <label class="chip" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="instant" /> <span>فوري</span>
+        </label>
+
+        <button id="generate">إنشاء صورة</button>
+        <button class="cam-btn" id="cameraBtn">كاميرا 📸</button>
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="upload-area" id="uploadArea">
+        اسحب صورة هنا أو <label for="upload" style="text-decoration:underline;cursor:pointer">اختر ملف</label>
+        <input type="file" id="upload" accept="image/*" style="display:none" />
+        <div style="margin-top:8px;font-size:0.9rem;opacity:0.8">يمكن رفع صورة ثم تعديل جزء محدد باستخدام فرشاة القناع، أو التقاط لقطة فورية من الكاميرا للتعديل الفوري.</div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button class="btn-small" id="example1">قطة مستقبلية 😎</button>
+        <button class="btn-small" id="example2">مدينة خيالية ليلية 🌃</button>
+        <button class="btn-small" id="clearAll">مسح الصور 🗑️</button>
+      </div>
+    </div>
+
+    <!-- كاميرا: مودال معاينة + التقاط -->
+    <div class="editor-modal" id="cameraModal">
+      <div class="editor-sheet">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong>التقاط صورة من الكاميرا</strong>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-small" id="closeCamera">إغلاق</button>
+          </div>
+        </div>
+
+        <div style="position:relative">
+          <video id="cameraVideo" class="camera-video" autoplay muted playsinline></video>
+          <div class="camera-flash" id="cameraFlash"></div>
+        </div>
+
+        <div class="camera-controls">
+          <button class="btn-small" id="takePhoto">التقاط</button>
+          <button class="btn-small" id="usePhoto">حفظ + تعديل</button>
+          <div style="margin-left:auto;color:#9fd;font-size:0.9rem">ملاحظة: يلزم اتصال آمن (HTTPS) في بعض المتصفحات.</div>
+        </div>
+      </div>
+    </div> 
+
+    <!-- محرر القناع -->
+    <div class="editor-modal" id="editor">
+      <div class="editor-sheet">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong id="editorTitle">محرّر الصورة</strong>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-small" id="downloadEdited">تنزيل</button>
+            <button class="btn-small" id="closeEditor">إغلاق</button>
+          </div>
+        </div>
+
+        <canvas id="imgCanvas" class="editor-canvas"></canvas>
+        <canvas id="maskCanvas" class="editor-canvas" style="position:absolute;left:0;right:0;margin:auto;pointer-events:none;display:none"></canvas>
+
+        <div class="editor-toolbar">
+          <label class="chip">الفرشاة: <input id="brushSize" type="range" min="4" max="80" value="28" /></label>
+          <label class="chip"><input type="radio" name="mode" value="draw" checked /> رسم</label>
+          <label class="chip"><input type="radio" name="mode" value="erase" /> محو</label>
+          <button class="btn-small" id="applyEdit">تطبيق التعديل</button>
+          <button class="btn-small" id="clearMask">مسح القناع</button>
+          <div style="margin-left:auto;color:#9fd">نصيحة: ارسم على المناطق التي تريد تغييرها فقط.</div>
+        </div>
+      </div>
+    </div> 
+
+    <div id="images" aria-live="polite"></div>
+  </div>
+
+  <canvas id="confetti"></canvas>
+
+  <script>
+    const promptInput = document.getElementById('prompt');
+    const generateBtn = document.getElementById('generate');
+    const statusEl = document.getElementById('status');
+    const imagesEl = document.getElementById('images');
+    const canvas = document.getElementById('confetti');
+
+    const upload = document.getElementById('upload');
+    const uploadArea = document.getElementById('uploadArea');
+    const editor = document.getElementById('editor');
+    const imgCanvas = document.getElementById('imgCanvas');
+    const maskCanvas = document.getElementById('maskCanvas');
+    const brushSizeEl = document.getElementById('brushSize');
+    const applyEditBtn = document.getElementById('applyEdit');
+    const closeEditorBtn = document.getElementById('closeEditor');
+    const downloadEditedBtn = document.getElementById('downloadEdited');
+    const instantCheckbox = document.getElementById('instant');
+
+    let imgCtx = imgCanvas.getContext('2d');
+    let maskCtx = maskCanvas.getContext('2d');
+    let drawing=false, mode='draw';
+    let currentImageSrc = null; // source being edited
+
+    // canvas resize helper
+    function fitCanvasToImage(c, img){
+      const ratio = img.width / img.height;
+      const maxW = Math.min(window.innerWidth - 120, 880);
+      const w = Math.min(img.width, maxW);
+      const h = Math.round(w / ratio);
+      c.width = w; c.height = h;
+      return {w,h};
+    }
+
+    // Resize confetti canvas
+    function resizeCanvas(){canvas.width = window.innerWidth; canvas.height = window.innerHeight}
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // simple confetti
+    function confettiBurst(){
+      const ctx = canvas.getContext('2d');
+      const particles = [];
+      const colors = ['#ff5f6d','#ffc371','#7c3aed','#06b6d4','#ffd166'];
+      for(let i=0;i<40;i++){particles.push({x:canvas.width/2 + (Math.random()-0.5)*200,y:canvas.height*0.25 + (Math.random()-0.5)*100, vx:(Math.random()-0.5)*6, vy:Math.random()*-6-2, size:6+Math.random()*8, color:colors[Math.floor(Math.random()*colors.length)], life: 80+Math.random()*40})}
+      let t = 0;
+      const id = setInterval(()=>{
+        t++; ctx.clearRect(0,0,canvas.width,canvas.height);
+        for(let p of particles){ p.vy += 0.18; p.x += p.vx; p.y += p.vy; p.life--; ctx.fillStyle = p.color; ctx.beginPath(); ctx.ellipse(p.x,p.y,p.size, p.size*0.6, Math.random()*Math.PI,0,Math.PI*2); ctx.fill(); }
+        if(t>140){ clearInterval(id); ctx.clearRect(0,0,canvas.width,canvas.height); }
+      }, 16);
+    }
+
+    function setStatus(txt, loading=false){
+      statusEl.textContent = '';
+      if(loading){ const s = document.createElement('span'); s.innerHTML = txt + ' <span class="spinner"></span>'; statusEl.appendChild(s); }
+      else statusEl.textContent = txt;
+    }
+
+    function createCard(imgEl, prompt){
+      const card = document.createElement('div'); card.className = 'card';
+      const img = document.createElement('img');
+      img.alt = prompt || 'Puter image';
+      // set source safely
+      if(imgEl && imgEl.tagName === 'IMG' && imgEl.src) img.src = imgEl.src;
+      else if(typeof imgEl === 'string') img.src = imgEl;
+      else img.src = '';
+
+      const actions = document.createElement('div'); actions.className = 'actions-row';
+      const dl = document.createElement('a'); dl.className='btn-small'; dl.textContent='تنزيل'; dl.href = img.src; dl.download = 'puter-image.png';
+      const editBtn = document.createElement('button'); editBtn.className='btn-small'; editBtn.textContent='تعديل';
+      const remove = document.createElement('button'); remove.className='btn-small'; remove.textContent='حذف';
+
+      remove.addEventListener('click', ()=> card.remove());
+      editBtn.addEventListener('click', ()=> openEditorFor(img.src));
+
+      actions.appendChild(dl); actions.appendChild(editBtn); actions.appendChild(remove);
+
+      const meta = document.createElement('div'); meta.className='meta'; meta.textContent = prompt || '';
+
+      card.appendChild(img); card.appendChild(actions); card.appendChild(meta);
+      return card;
+    }
+
+    async function generateImage(){
+      const prompt = promptInput.value.trim();
+      if(!prompt){ setStatus('الرجاء إدخال وصف للصورة.'); return }
+      generateBtn.disabled = true; setStatus('جاري إنشاء الصورة...', true);
+
+      try{
+        const res = await puter.ai.txt2img(prompt, { model: document.getElementById('model').value });
+        // handle element or url
+        let src = '';
+        if(res && res.tagName === 'IMG') src = res.src;
+        else if(typeof res === 'string') src = res;
+        else if(res && res.url) src = res.url;
+
+        const card = createCard(src || res, prompt);
+        imagesEl.prepend(card);
+        setStatus('تم الإنشاء ✅');
+        confettiBurst();
+      }catch(err){
+        setStatus('حدث خطأ: ' + (err.message || err));
+      }finally{ generateBtn.disabled=false; }
+    }
+
+    // Instant (debounced) generate
+    let instantTimer = null;
+    promptInput.addEventListener('input', ()=>{
+      if(!instantCheckbox.checked) return;
+      clearTimeout(instantTimer);
+      const val = promptInput.value.trim();
+      if(val.length < 4) return;
+      instantTimer = setTimeout(()=>{ generateImage(); }, 900);
+    });
+
+    generateBtn.addEventListener('click', generateImage);
+    promptInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); generateImage(); } });
+
+    // Examples and clear
+    document.getElementById('example1').addEventListener('click', ()=>{ promptInput.value='قطة لطيفة ترتدي نظارة شمسية في مدينة مستقبلية'; generateImage(); });
+    document.getElementById('example2').addEventListener('click', ()=>{ promptInput.value='منظر مدينة مستقبلية ليلية مع أضواء نيون ومطر خفيف، أسلوب سينمائي'; generateImage(); });
+    document.getElementById('clearAll').addEventListener('click', ()=>{ imagesEl.innerHTML=''; setStatus('تم المسح.'); });
+
+    // Upload handling
+    upload.addEventListener('change', async (e)=>{ const f = e.target.files[0]; if(!f) return; const url = await readFileAsDataURL(f); const card = createCard(url, 'Uploaded image'); imagesEl.prepend(card); setStatus('تم الرفع ✅'); });
+
+    uploadArea.addEventListener('dragover', (e)=>{ e.preventDefault(); uploadArea.classList.add('drag'); });
+    uploadArea.addEventListener('dragleave', ()=>{ uploadArea.classList.remove('drag'); });
+    uploadArea.addEventListener('drop', async (e)=>{ e.preventDefault(); uploadArea.classList.remove('drag'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f) { const url = await readFileAsDataURL(f); const card = createCard(url, 'Uploaded image'); imagesEl.prepend(card); setStatus('تم الرفع ✅'); } });
+
+    function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+
+    // Camera: open stream, capture, and integrate
+    const cameraBtn = document.getElementById('cameraBtn');
+    const cameraModal = document.getElementById('cameraModal');
+    const cameraVideo = document.getElementById('cameraVideo');
+    const cameraFlash = document.getElementById('cameraFlash');
+    const takePhotoBtn = document.getElementById('takePhoto');
+    const closeCameraBtn = document.getElementById('closeCamera');
+    const usePhotoBtn = document.getElementById('usePhoto');
+    let cameraStream = null;
+
+    async function openCamera(){
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ setStatus('الكاميرا غير مدعومة في متصفحك.'); return; }
+      try{
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        cameraVideo.srcObject = cameraStream;
+        await cameraVideo.play();
+        cameraModal.classList.add('open');
+        setStatus('الكاميرا جاهزة.');
+      }catch(err){
+        setStatus('تعذر الوصول للكاميرا: ' + (err.message || err));
+      }
+    }
+
+    function stopCamera(){
+      if(cameraStream){ cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; }
+      cameraVideo.pause(); cameraVideo.srcObject = null; cameraModal.classList.remove('open');
+    }
+
+    cameraBtn.addEventListener('click', ()=>{
+      openCamera();
+    });
+    closeCameraBtn.addEventListener('click', ()=>{ stopCamera(); setStatus('أغلقت الكاميرا.'); });
+
+    function flashShutter(){ cameraFlash.classList.add('flash'); setTimeout(()=> cameraFlash.classList.remove('flash'), 180); }
+
+    function takeSnapshot(){
+      if(!cameraVideo || cameraVideo.readyState < 2){ setStatus('في انتظار إشارة الفيديو من الكاميرا...'); return null; }
+      const tmp = document.createElement('canvas'); tmp.width = cameraVideo.videoWidth || 1024; tmp.height = cameraVideo.videoHeight || 768;
+      const tctx = tmp.getContext('2d'); tctx.drawImage(cameraVideo, 0, 0, tmp.width, tmp.height);
+      const data = tmp.toDataURL('image/png'); flashShutter(); return data;
+    }
+
+    takePhotoBtn.addEventListener('click', ()=>{
+      const data = takeSnapshot(); if(!data) return; // immediately add card + keep camera open for more
+      const card = createCard(data, 'كاميرا (لقطة)'); imagesEl.prepend(card); setStatus('تم التقاط الصورة ✅');
+    });
+
+    // Save + edit: capture and open editor with captured image
+    usePhotoBtn.addEventListener('click', ()=>{
+      const data = takeSnapshot(); if(!data) return; stopCamera(); openEditorFor(data); setStatus('تم التقاط الصورة وفتح المُحرّر.');
+    });
+
+    // Editor
+    function openEditorFor(src){
+      currentImageSrc = src;
+      editor.classList.add('open');
+      loadImageToCanvas(src);
+    }
+
+    function closeEditor(){ editor.classList.remove('open'); clearEditor(); }
+    closeEditorBtn.addEventListener('click', closeEditor);
+
+    async function loadImageToCanvas(src){
+      const img = new Image(); img.crossOrigin = 'anonymous'; img.src = src;
+      try{
+        await new Promise((res,rej)=>{ img.onload = res; img.onerror = rej; });
+      }catch(e){
+        setStatus('لا يمكن تعديل الصورة مباشرة بسبب قيود CORS؛ حمّلها ثم أعد رفعها لتعديلها.');
+        return;
+      }
+      const size = fitCanvasToImage(imgCanvas, img);
+      fitCanvasToImage(maskCanvas, img);
+      imgCtx = imgCanvas.getContext('2d'); maskCtx = maskCanvas.getContext('2d');
+      imgCtx.clearRect(0,0,imgCanvas.width,imgCanvas.height);
+      imgCtx.drawImage(img,0,0,imgCanvas.width,imgCanvas.height);
+      // clear mask
+      maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height);
+      maskCanvas.style.position='absolute'; maskCanvas.style.left = imgCanvas.offsetLeft + 'px'; maskCanvas.style.top = imgCanvas.offsetTop + 'px';
+      maskCanvas.style.width = imgCanvas.style.width; maskCanvas.style.height = imgCanvas.style.height; maskCanvas.style.display='block'; maskCanvas.style.pointerEvents='auto';
+
+      // drawing events
+      maskCanvas.addEventListener('pointerdown', startDraw);
+      window.addEventListener('pointermove', draw);
+      window.addEventListener('pointerup', endDraw);
+
+      // set default drawing mode
+      document.querySelectorAll('input[name="mode"]').forEach(r=> r.addEventListener('change', ()=> mode = document.querySelector('input[name="mode"]:checked').value));
+    }
+
+    function startDraw(e){ drawing = true; draw(e); }
+    function draw(e){ if(!drawing) return; const rect = maskCanvas.getBoundingClientRect(); const x = (e.clientX - rect.left) * (maskCanvas.width / rect.width); const y = (e.clientY - rect.top) * (maskCanvas.height / rect.height); maskCtx.globalCompositeOperation = (mode==='erase') ? 'destination-out' : 'source-over'; maskCtx.fillStyle = (mode==='erase') ? 'rgba(0,0,0,1)' : 'rgba(255,255,255,0.9)'; const r = parseInt(brushSizeEl.value,10); maskCtx.beginPath(); maskCtx.arc(x,y,r,0,Math.PI*2); maskCtx.fill(); }
+    function endDraw(){ drawing=false; }
+
+    document.getElementById('clearMask').addEventListener('click', ()=>{ maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height); });
+
+    // Apply edit: attempt to call puter.ai.inpaint or give friendly message
+    applyEditBtn.addEventListener('click', async ()=>{
+      setStatus('جاري إرسال طلب التعديل...', true);
+      try{
+        // get mask as blob (white = change area)
+        const maskDataUrl = maskCanvas.toDataURL('image/png');
+        // try calling an inpaint-like function
+        if(puter && typeof puter.ai.inpaint === 'function'){
+          const res = await puter.ai.inpaint({ image: currentImageSrc, mask: maskDataUrl, prompt: promptInput.value, model: document.getElementById('model').value });
+          let src=''; if(res && res.url) src = res.url; else if(typeof res === 'string') src = res; else if(res && res.tagName==='IMG') src = res.src;
+          if(src){ imagesEl.prepend(createCard(src, promptInput.value)); setStatus('تم التعديل ✅'); confettiBurst(); closeEditor(); return; }
+        }
+
+        // fallback: if no inpaint support, show instructions
+        setStatus('واجهة التعديل غير متاحة في هذا السكربت، يمكنك تنزيل الصورة وإعادة رفعها بعد التعديل محليًا.', false);
+      }catch(err){ setStatus('حدث خطأ أثناء التعديل: ' + (err.message||err)); }
+    });
+
+    downloadEditedBtn.addEventListener('click', ()=>{
+      try{
+        const url = imgCanvas.toDataURL('image/png');
+        const a = document.createElement('a'); a.href = url; a.download='edited.png'; a.click();
+      }catch(e){ setStatus('تعذر تنزيل الصورة (CORS).'); }
+    });
+
+    function clearEditor(){ maskCtx && maskCtx.clearRect(0,0,maskCanvas.width,maskCanvas.height); maskCanvas.style.display='none'; }
+
+  </script>
+</body>
+</html>

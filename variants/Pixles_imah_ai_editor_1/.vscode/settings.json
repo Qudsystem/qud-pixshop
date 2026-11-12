@@ -1,0 +1,13 @@
+{
+    "liveServer.settings.port": 5501,
+    "chat.tools.terminal.autoApprove": {
+        "/^powershell -Command \"for \\(\\$i=0;\\$i -lt 12;\\$i\\+\\+\\)\\{ try \\{ \\$r = Invoke-WebRequest -UseBasicParsing -Uri http://localhost:3000/health -TimeoutSec 2; Write-Output \\$r\\.Content; break \\} catch \\{ Start-Sleep -Seconds 1 \\} \\}\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx jest --runInBand --verbose$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
